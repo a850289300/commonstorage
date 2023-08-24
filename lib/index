@@ -1,0 +1,152 @@
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/**
+ * 支持-命名空间 字符串
+ * 支持-过期时间 支持 m分钟 h小时 d天的时间格式, 如果直接传入数字格式 默认为 h, 不传或者格式不对默认永久
+ * 支持-监听当前页面 localStorage 发生变化时的回调
+ */
+var commonStorage = function () {
+    function commonStorage(namespace) {
+        _classCallCheck(this, commonStorage);
+
+        this.namespace = namespace || '';
+    }
+    // 规范化数据
+
+
+    _createClass(commonStorage, [{
+        key: 'normalize',
+        value: function normalize(val, time) {
+            return JSON.stringify({
+                val: val,
+                time: this.getTime(time)
+            });
+        }
+        // 检查时间格式是否正确
+
+    }, {
+        key: 'getTime',
+        value: function getTime(time) {
+            var reg = /^\d+[mhd]*$/;
+            if (!reg.test(time)) {
+                return 0;
+            } else {
+                var currentTime = new Date().getTime();
+                var timeout = ('' + time).replace(/^(\d+)(m|h|d)*$/, function () {
+                    var unit = RegExp.$2 || 'h'; // 时间单位
+                    var duration = Number(RegExp.$1) || 0; // 时长
+                    var val = 0;
+                    switch (unit) {
+                        case 'm':
+                            val = currentTime + duration * 60 * 1000;
+                            break;
+                        case 'h':
+                            val = currentTime + duration * 60 * 60 * 1000;
+                            break;
+                        case 'd':
+                            val = currentTime + duration * 24 * 60 * 60 * 1000;
+                            break;
+                    }
+                    return val;
+                });
+                return Number(timeout);
+            }
+        }
+        // 获取返回的数据
+
+    }, {
+        key: 'getReturnVal',
+        value: function getReturnVal(key, val) {
+            var data = this.getStorageVal(val); // 获取缓存的值
+            if (data && data.time && data.time < new Date().getTime()) {
+                // 存在过期时间,且已经过期返回null,并删除
+                data = null;
+                this.removeItem(key);
+            }
+            return data;
+        }
+        // 获取正确的缓存数据
+
+    }, {
+        key: 'getStorageVal',
+        value: function getStorageVal(val) {
+            try {
+                var data = JSON.parse(val);
+                if ((typeof data === 'undefined' ? 'undefined' : _typeof(data)) === 'object') {
+                    return data.val;
+                } else {
+                    return val;
+                }
+            } catch (e) {
+                return val;
+            }
+        }
+        // 设置值
+
+    }, {
+        key: 'setItem',
+        value: function setItem(key, val, time) {
+            var namespace = this.namespace;
+            key = '' + (namespace ? namespace + '-' + key : key);
+            // 触发自定义事件
+            var myEvent = new CustomEvent("changeStorage", { detail: { key: key, val: val, time: time } });
+            document.dispatchEvent(myEvent);
+            return localStorage.setItem(key, this.normalize(val, time));
+        }
+        // 获取值
+
+    }, {
+        key: 'getItem',
+        value: function getItem(key) {
+            var namespace = this.namespace;
+            key = '' + (namespace ? namespace + '-' + key : key);
+            return this.getReturnVal(key, localStorage.getItem(key));
+        }
+
+        // 清空 存在命名空间时, 仅清除命名空间的缓存
+
+    }, {
+        key: 'clear',
+        value: function clear() {
+            var namespace = this.namespace;
+            if (namespace) {
+                var len = localStorage.length;
+                var reg = new RegExp('^' + namespace + '-');
+                for (var i = 0; i < len; i++) {
+                    var key = localStorage.key(i);
+                    if (reg.test(key)) {
+                        // 匹配到命名空间开头则清空
+                        localStorage.removeItem(key);
+                        i--;
+                    }
+                }
+            } else {
+                localStorage.clear();
+            }
+        }
+
+        // 移除
+
+    }, {
+        key: 'removeItem',
+        value: function removeItem(key) {
+            var namespace = this.namespace;
+            key = '' + (namespace ? namespace + '-' + key : key);
+            return localStorage.removeItem(key);
+        }
+    }]);
+
+    return commonStorage;
+}();
+
+exports.default = commonStorage;
